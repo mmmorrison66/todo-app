@@ -67,7 +67,7 @@ function DraggableTask({ task, option, onToggle, onDelete, completed, index, onA
 }
 
 // Droppable Time Slot Component
-function DroppableSlot({ slot, scheduledTask, getDueOption, index }) {
+function DroppableSlot({ slot, scheduledTask, getDueOption, onToggleTask }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${slot.id}`,
     data: { slot },
@@ -103,20 +103,52 @@ function DroppableSlot({ slot, scheduledTask, getDueOption, index }) {
         {formatSlotTime()}
       </span>
       {scheduledTask && (
-        <ScheduledTaskBlock task={scheduledTask} option={getDueOption(scheduledTask.due)} />
+        <ScheduledTaskBlock
+          task={scheduledTask}
+          option={getDueOption(scheduledTask.due)}
+          onToggle={() => onToggleTask(scheduledTask.id)}
+        />
       )}
     </div>
   )
 }
 
-// Scheduled Task Block (displayed on grid)
-function ScheduledTaskBlock({ task, option }) {
+// Scheduled Task Block (displayed on grid) - now draggable
+function ScheduledTaskBlock({ task, option, onToggle }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `task-${task.id}`,
+    data: { task },
+  })
+
   return (
-    <div style={{
-      ...styles.scheduledTask,
-      background: option?.gradient || 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
-    }}>
-      <span style={styles.scheduledTaskText}>{task.text}</span>
+    <div
+      ref={setNodeRef}
+      style={{
+        ...styles.scheduledTask,
+        background: option?.gradient || 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle()
+        }}
+        style={styles.scheduledCheckbox}
+      >
+        {task.completed && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        )}
+      </button>
+      <div
+        {...attributes}
+        {...listeners}
+        style={{ flex: 1, cursor: 'grab', overflow: 'hidden' }}
+      >
+        <span style={styles.scheduledTaskText}>{task.text}</span>
+      </div>
     </div>
   )
 }
@@ -472,6 +504,7 @@ export default function Home() {
                   slot={slot}
                   scheduledTask={scheduledBySlot[slot.id]}
                   getDueOption={getDueOption}
+                  onToggleTask={toggleComplete}
                 />
               ))}
             </div>
@@ -707,18 +740,19 @@ const styles = {
     minHeight: '100vh',
   },
   leftPanel: {
-    flex: 1,
-    padding: '40px 20px 80px',
-    maxWidth: '600px',
-    margin: '0 auto',
+    width: '320px',
+    minWidth: '280px',
+    padding: '20px 15px 60px',
+    overflowY: 'auto',
+    flexShrink: 0,
   },
   rightPanel: {
-    width: '380px',
+    flex: 1,
+    minWidth: '400px',
     borderLeft: '2px solid rgba(0,0,0,0.15)',
     background: '#fafafa',
     display: 'flex',
     flexDirection: 'column',
-    flexShrink: 0,
   },
   gridHeader: {
     padding: '20px',
@@ -760,6 +794,7 @@ const styles = {
   },
   scheduledTask: {
     position: 'absolute',
+    top: 0,
     left: '100px',
     right: '8px',
     height: '54px',
@@ -767,6 +802,7 @@ const styles = {
     padding: '4px 10px',
     display: 'flex',
     alignItems: 'center',
+    gap: '4px',
     zIndex: 5,
     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
   },
@@ -778,12 +814,27 @@ const styles = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
+  scheduledCheckbox: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '5px',
+    border: '2px solid rgba(255,255,255,0.4)',
+    background: 'rgba(255,255,255,0.2)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    flexShrink: 0,
+    marginRight: '8px',
+    transition: 'all 0.2s ease',
+  },
   header: {
-    marginBottom: '32px',
+    marginBottom: '20px',
     textAlign: 'center',
   },
   title: {
-    fontSize: '2.5rem',
+    fontSize: '1.8rem',
     fontWeight: '700',
     letterSpacing: '-0.03em',
     marginBottom: '8px',
@@ -816,20 +867,22 @@ const styles = {
     transition: 'all 0.2s ease',
   },
   dueSelector: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(5, 1fr)',
-    gap: '8px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
     marginBottom: '12px',
   },
   dueButton: {
-    padding: '10px 8px',
-    fontSize: '0.75rem',
+    padding: '8px 12px',
+    fontSize: '0.7rem',
     fontWeight: '500',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '8px',
     color: '#111827',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+    flex: '1 1 auto',
+    minWidth: '80px',
   },
   dateInputWrapper: {
     marginBottom: '12px',
@@ -880,14 +933,14 @@ const styles = {
   taskBar: {
     display: 'flex',
     alignItems: 'center',
-    padding: '16px 20px',
-    borderRadius: '16px',
+    padding: '12px 14px',
+    borderRadius: '12px',
     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
     animation: 'slideIn 0.3s ease forwards',
   },
   dragHandle: {
-    width: '28px',
-    height: '28px',
+    width: '24px',
+    height: '24px',
     borderRadius: '6px',
     border: 'none',
     background: 'rgba(255,255,255,0.15)',
@@ -900,9 +953,9 @@ const styles = {
     flexShrink: 0,
   },
   checkbox: {
-    width: '24px',
-    height: '24px',
-    borderRadius: '6px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '5px',
     border: '2px solid',
     background: 'transparent',
     cursor: 'pointer',
@@ -915,14 +968,14 @@ const styles = {
   },
   taskContent: {
     flex: 1,
-    marginLeft: '12px',
+    marginLeft: '8px',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
     minWidth: 0,
   },
   taskText: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     fontWeight: '500',
     color: '#fff',
     overflow: 'hidden',
